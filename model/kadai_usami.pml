@@ -12,12 +12,8 @@ mtype = { TAIKI, HATSU, CHAKU, TSUUWA, INIT, WAIT,
 	  b_hatsu, b_outou, b_chuushi, b_kyohi, b_shuuryou };
 mtype = { CLEAR, SAVE };
 
-
-chan UserComm = [0] of { mtype };
-chan TaComm = [0] of { mtype };
-chan TbComm = [0] of { mtype };
-chan ch_ope = [0] of { mtype };
-chan ch_com = [0] of { mtype };
+chan ch_ope = [0] of { mtype };	/* ユーザー操作用チャネル */
+chan ch_com = [0] of { mtype };	/* 他通信端末との通信用チャネル */
 
 mtype recv_unit;     /* 受信装置の状態 */
 mtype reset_unit;    /* リセット装置の状態 */
@@ -26,19 +22,19 @@ mtype reset_unit;    /* リセット装置の状態 */
 /*********************************************************************
  * 通信端末
  *********************************************************************/
-active proctype com_unit()
+proctype com_unit()
 {
-	recv_unit = TAIKI;	/** 受信装置の初期化 **/
-	reset_unit = INIT;	/** リセット装置の初期化 **/
+	recv_unit = TAIKI;		/** 受信装置の初期化 **/
+	reset_unit = INIT;		/** リセット装置の初期化 **/
 	
-	byte mtx = 0;
-	byte CHAKU_ST = CLEAR;
-	byte KYOHI_2_ST = CLEAR;
-	byte KYOHI_1_ST = CLEAR;
-	int  Chaku_log = 0;
-	int  Kyohi_1_log = 0;
-	int  Kyohi_2_log = 0;
-	bool reset = false;
+	byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
+	byte CHAKU_ST = CLEAR;		/** 着信ログ状態 (CLEAR/SAVE) **/
+	byte KYOHI_1_ST = CLEAR;	/** 拒否ログ状態 (CLEAR/SAVE) **/
+	byte KYOHI_2_ST = CLEAR;	/** 拒否ログ状態 (CLEAR/SAVE) **/
+	int  Chaku_log = 0;		/** 着信ログ数 0<Log<xxx **/
+	int  Kyohi_1_log = 0;		/** 拒否ログ数 0<Log<xxx **/
+	int  Kyohi_2_log = 0;		/** 拒否ログ数 0<log<xxx **/
+	bool reset = false;		/** リセットフラグ **/
 
 	do
 	::
@@ -166,6 +162,7 @@ active proctype com_unit()
 
 /*********************************************************************
  * ユーザーa　（テスト用外部環境）
+ *	ランダムに通信端末(com_unit)を操作する
  *********************************************************************/
 proctype user_a()
 {
@@ -180,6 +177,8 @@ proctype user_a()
 
 /*********************************************************************
  * 他通信端末b　（テスト用外部環境）
+ *	テスト対象のcom_unitに操作メッセージをランダムに送信する
+ *	（ランダムに通信端末(com_unit_b)を操作している状態をモデル化）
  *********************************************************************/
 proctype com_unit_b()
 {
@@ -192,3 +191,12 @@ proctype com_unit_b()
 	od;
 }
 
+/*********************************************************************
+ * 実行
+ *********************************************************************/
+init {
+	run com_unit();
+	run user_a();
+	run com_unit_b();
+	run com_unit_b();
+}
