@@ -22,141 +22,176 @@ mtype reset_unit;    /* リセット装置の状態 */
 /*********************************************************************
  * 通信端末
  *********************************************************************/
-proctype com_unit()
+proctype recv_device()
 {
 	recv_unit = TAIKI;		/** 受信装置の初期化 **/
-	reset_unit = INIT;		/** リセット装置の初期化 **/
 	
 	byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
-	byte CHAKU_ST = CLEAR;		/** 着信ログ状態 (CLEAR/SAVE) **/
-	byte KYOHI_1_ST = CLEAR;	/** 拒否ログ状態 (CLEAR/SAVE) **/
-	byte KYOHI_2_ST = CLEAR;	/** 拒否ログ状態 (CLEAR/SAVE) **/
-	int  Chaku_log = 0;		/** 着信ログ数 0<Log<xxx **/
-	int  Kyohi_1_log = 0;		/** 拒否ログ数 0<Log<xxx **/
-	int  Kyohi_2_log = 0;		/** 拒否ログ数 0<log<xxx **/
+	byte CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
+	byte KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
+	byte KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
+	int  Chaku_log = 0;
+	     /** 着信履歴 5000件/10000件 -> 50件/100件に縮退 **/
+	int  Kyohi_1_log = 0;
+	     /** 拒否ログ数 1500件/3000件 -> 15件/30件に縮退 **/
+	int  Kyohi_2_log = 0;
+	     /** 拒否ログ数 900件/1800件 -> 9件/18件に縮退 **/
 	bool reset = false;		/** リセットフラグ **/
 
 	do
-	::
-		do
-		::recv_unit == TAIKI;
+	::recv_unit == TAIKI;
+		if
+		::ch_ope ? a_hatsu -> recv_unit = HATSU;
+		::ch_com ? b_hatsu -> recv_unit = CHAKU;
 			if
-			::ch_ope ? a_hatsu -> recv_unit = HATSU;
-			::ch_com ? b_hatsu -> recv_unit = CHAKU;
+			::CHAKU_ST == SAVE ->
+				if
+				::Chaku_log == 49 -> CHAKU_ST = CLEAR;
+					if
+					::reset == false -> reset = !(reset);
+					::else->skip;
+					fi;
+				::else->skip;
+				fi;
+			::else->skip;
+			fi;
+			if
+			::Chaku_log < 100 -> Chaku_log++
+			::else->skip;
+			fi;
+		fi;
+	::recv_unit == HATSU;
+		if
+		::ch_ope ? a_chuushi -> recv_unit = TAIKI;
+		::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
+		::ch_com ? b_kyohi -> recv_unit = TAIKI;
+			if
+			::KYOHI_2_ST == SAVE ->
+				if
+				::Kyohi_2_log == 8 -> KYOHI_2_ST = CLEAR
+					if
+					::reset == false -> reset = !(reset)
+					::else->skip;
+					fi;
+				::else->skip;
+				fi;
+			::else->skip;
+			fi;
+			if
+			::Kyohi_2_log < 18 -> Kyohi_2_log++
+			::else->skip;
+			fi;
+		fi;
+	::recv_unit == CHAKU;
+		if
+		::ch_ope ? a_outou -> TSUUWA;
+			if
+			::mtx == 0 -> mtx = 1;
+			::mtx == 1 -> mtx = 2;
+			::else->skip;
+			fi;
+		::ch_ope ? a_kyohi ->
+			if
+			::mtx == 0 -> recv_unit = TAIKI;
+			::mtx == 1 -> recv_unit = TSUUWA;
+			::else->skip;
+			fi;
+			if
+			::KYOHI_1_ST == SAVE ->
+				if
+				::Kyohi_1_log == 14 -> KYOHI_1_ST = CLEAR
+					if
+					::reset == false -> reset = !(reset);
+					::else->skip;
+					fi;
+				::else->skip;
+				fi;
+			::else->skip;
+			fi;
+			if
+			::Kyohi_1_log < 30 -> Kyohi_1_log++
+			::else->skip;
+			fi;
+		::ch_ope ? a_shuuryou ->
+			if
+			::mtx == 1 -> mtx = 0;
+			::mtx == 2 -> mtx = 1;
+			::else->skip;
+			fi;
+		::ch_com ? b_chuushi -> 
+			if
+			::mtx == 0 -> recv_unit = TAIKI;
+			::mtx == 1 -> recv_unit = TSUUWA;
+			::else->skip;
+			fi;
+		::ch_com ? b_shuuryou ->
+			if
+			::mtx == 1 -> mtx = 0;
+			::mtx == 2 -> mtx = 1;
+			::else->skip;
+			fi;
+		fi;
+	::recv_unit == TSUUWA;
+		if
+		::ch_ope ? a_shuuryou ->
+			if
+			::mtx == 1 -> recv_unit = TAIKI;
+			::else->skip;
+			fi;
+			if
+			::mtx == 1 -> mtx = 0;
+			::mtx == 2 -> mtx = 1;
+			::else->skip;
+			fi;
+		::ch_com ? b_hatsu ->
+			if
+			::mtx == 1 -> recv_unit = CHAKU;
+			::else->skip;
+			fi;
+			if
+			::mtx == 1 ->
 				if
 				::CHAKU_ST == SAVE ->
 					if
-					::Chaku_log == 4999 -> CHAKU_ST = CLEAR;
+					::Chaku_log == 49 -> CHAKU_ST = CLEAR;
 						if
 						::reset == false -> reset = !(reset);
+						::else->skip;
 						fi;
+					::else->skip;
 					fi;
+				::else->skip;
 				fi;
 				if
-				::Chaku_log < 10000 -> Chaku_log++
+				::Chaku_log < 100 -> Chaku_log++
+				::else->skip;
 				fi;
+			::else->skip;
 			fi;
-		::recv_unit == HATSU;
-			if
-			::ch_ope ? a_chuushi -> recv_unit = TAIKI;
-			::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
-			::ch_com ? b_kyohi -> recv_unit = TAIKI;
-				if
-				::KYOHI_2_ST == SAVE ->
-					if
-					::Kyohi_2_log == 899 -> KYOHI_2_ST = CLEAR
-						if
-						::reset == false -> reset = !(reset)
-						fi;
-					fi;
-				fi;
-				if
-				::Kyohi_2_log < 1800 -> Kyohi_2_log++
-				fi;
-			fi;
-		::recv_unit == CHAKU;
-			if
-			::ch_ope ? a_outou -> TSUUWA;
-				if
-				::mtx == 0 -> mtx = 1;
-				::mtx == 1 -> mtx = 2;
-				fi;
-			::ch_ope ? a_kyohi ->
-				if
-				::mtx == 0 -> recv_unit = TAIKI;
-				::mtx == 1 -> recv_unit = TSUUWA;
-				fi;
-				if
-				::KYOHI_1_ST == SAVE ->
-					if
-					::Kyohi_1_log == 1499 -> KYOHI_1_ST = CLEAR
-						if
-						::reset == false -> reset = !(reset);
-						fi;
-					fi;
-				fi;
-				if
-				::Kyohi_1_log < 3000 -> Kyohi_1_log++
-				fi;
-			::ch_ope ? a_shuuryou ->
-				if
-				::mtx == 1 -> mtx = 0;
-				::mtx == 2 -> mtx = 1;
-				fi;
-			::ch_com ? b_chuushi -> 
-				if
-				::mtx == 0 -> recv_unit = TAIKI;
-				::mtx == 1 -> recv_unit = TSUUWA;
-				fi;
-			::ch_com ? b_shuuryou ->
-				if
-				::mtx == 1 -> mtx = 0;
-				::mtx == 2 -> mtx = 1;
-				fi;
-			fi;
-		::recv_unit == TSUUWA;
-			if
-			::ch_ope ? a_shuuryou ->
-				if
-				::mtx == 1 -> recv_unit = TAIKI;
-				fi;
-				if
-				::mtx == 1 -> mtx = 0;
-				::mtx == 2 -> mtx = 1;
-				fi;
-			::ch_com ? b_hatsu ->
-				if
-				::mtx == 1 -> recv_unit = CHAKU;
-				fi;
-				if
-				::mtx == 1 ->
-					if
-					::CHAKU_ST == SAVE ->
-						if
-						::Chaku_log == 4999 -> CHAKU_ST = CLEAR;
-							if
-							::reset == false -> reset = !(reset);
-							fi;
-						fi;
-					fi;
-					if
-					::Chaku_log < 10000 -> Chaku_log++
-					fi;
-				fi;
-			::ch_com ? b_shuuryou ->
-				 if
-				 ::mtx == 1 -> recv_unit = TAIKI;
-				 fi;
-				 if
-				 ::mtx == 1 -> mtx = 0;
-				 ::mtx == 2 -> mtx = 1;
-				 fi;
-			fi;
-		od;
-		do
-		::reset_unit == INIT -> reset_unit = WAIT;
-		::reset_unit == WAIT -> skip;
-		od;
+		::ch_com ? b_shuuryou ->
+			 if
+			 ::mtx == 1 -> recv_unit = TAIKI;
+			 ::else->skip;
+			 fi;
+			 if
+			 ::mtx == 1 -> mtx = 0;
+			 ::mtx == 2 -> mtx = 1;
+			 ::else->skip;
+			 fi;
+		fi;
+	od;
+}
+
+/*********************************************************************
+ * リセット装置
+ *********************************************************************/
+proctype reset_device()
+{
+	reset_unit = INIT;
+	
+	do
+	::reset_unit == INIT -> reset_unit = WAIT;
+	::reset_unit == WAIT -> skip;
 	od;
 }
 
@@ -195,7 +230,8 @@ proctype com_unit_b()
  * 実行
  *********************************************************************/
 init {
-	run com_unit();
+	run recv_device();
+	run reset_device();
 	run user_a();
 	run com_unit_b();
 	run com_unit_b();
