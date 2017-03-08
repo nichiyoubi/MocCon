@@ -18,6 +18,14 @@ chan ch_com = [0] of { mtype };	/* 他通信端末との通信用チャネル */
 mtype recv_unit;     /* 受信装置の状態 */
 mtype reset_unit;    /* リセット装置の状態 */
 
+byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
+byte CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
+byte KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
+byte KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
+int  Chaku_log = 0;		/** 着信履歴 5000件/10000件 -> 50件/100件に縮退 **/
+int  Kyohi_1_log = 0;		/** 拒否ログ数 1500件/3000件 -> 15件/30件に縮退 **/
+int  Kyohi_2_log = 0;		/** 拒否ログ数 900件/1800件 -> 9件/18件に縮退 **/
+bool reset = false;		/** リセットフラグ **/
 
 /*********************************************************************
  * 通信端末
@@ -26,20 +34,11 @@ proctype recv_device()
 {
 	recv_unit = TAIKI;		/** 受信装置の初期化 **/
 	
-	byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
-	byte CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
-	byte KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
-	byte KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
-	int  Chaku_log = 0;
-	     /** 着信履歴 5000件/10000件 -> 50件/100件に縮退 **/
-	int  Kyohi_1_log = 0;
-	     /** 拒否ログ数 1500件/3000件 -> 15件/30件に縮退 **/
-	int  Kyohi_2_log = 0;
-	     /** 拒否ログ数 900件/1800件 -> 9件/18件に縮退 **/
-	bool reset = false;		/** リセットフラグ **/
-
 	do
 	::recv_unit == TAIKI;
+		assert(Chaku_log < 100);
+/*		assert(Kyohi_1_log < 30); */
+/*		assert(Kyohi_2_log < 18); */
 		if
 		::ch_ope ? a_hatsu -> recv_unit = HATSU;
 		::ch_com ? b_hatsu -> recv_unit = CHAKU;
@@ -61,6 +60,9 @@ proctype recv_device()
 			fi;
 		fi;
 	::recv_unit == HATSU;
+		assert(Chaku_log < 100);
+/*		assert(Kyohi_1_log < 30); */
+/*		assert(Kyohi_2_log < 18); */
 		if
 		::ch_ope ? a_chuushi -> recv_unit = TAIKI;
 		::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
@@ -83,6 +85,9 @@ proctype recv_device()
 			fi;
 		fi;
 	::recv_unit == CHAKU;
+		assert(Chaku_log < 100);
+/*		assert(Kyohi_1_log < 30); */
+/*		assert(Kyohi_2_log < 18); */
 		if
 		::ch_ope ? a_outou -> TSUUWA;
 			if
@@ -132,6 +137,9 @@ proctype recv_device()
 			fi;
 		fi;
 	::recv_unit == TSUUWA;
+		assert(Chaku_log < 100);
+/*		assert(Kyohi_1_log < 30); */
+/*		assert(Kyohi_2_log < 18); */
 		if
 		::ch_ope ? a_shuuryou ->
 			if
@@ -191,7 +199,31 @@ proctype reset_device()
 	
 	do
 	::reset_unit == INIT -> reset_unit = WAIT;
-	::reset_unit == WAIT -> skip;
+	::reset_unit == WAIT ->
+		if
+		::CHAKU_ST == CLEAR ->
+			CHAKU_ST = SAVE;
+			/** Backup **/
+			Chaku_log = 0;
+			reset = false;
+		::else->skip;
+		fi;
+		if
+		::KYOHI_1_ST == CLEAR ->
+			KYOHI_1_ST = SAVE;
+			/** Backup **/
+			Kyohi_1_log = 0;
+			reset = false;
+		::else->skip;
+		fi;
+		if
+		::KYOHI_2_ST == CLEAR ->
+			KYOHI_2_ST = SAVE;
+			/** Backup **/
+			Kyohi_2_log = 0;
+			reset = false;
+		::else->skip;
+		fi;
 	od;
 }
 
