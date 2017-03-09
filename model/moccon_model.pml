@@ -22,9 +22,9 @@ byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
 byte CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
 byte KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
 byte KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
-int  Chaku_log = 0;		/** 着信履歴 5000件/10000件 -> 50件/100件に縮退 **/
-int  Kyohi_1_log = 0;		/** 拒否ログ数 1500件/3000件 -> 15件/30件に縮退 **/
-int  Kyohi_2_log = 0;		/** 拒否ログ数 900件/1800件 -> 9件/18件に縮退 **/
+byte Chaku_log = 0;		/** 着信履歴 5000件/10000件 -> 5件/10件に縮退 **/
+byte Kyohi_1_log = 0;		/** 拒否ログ数 1500件/3000件 -> 1件/3件に縮退 **/
+byte Kyohi_2_log = 0;		/** 拒否ログ数 900件/1800件 -> 1件/2件に縮退 **/
 bool reset = false;		/** リセットフラグ **/
 
 /*********************************************************************
@@ -36,16 +36,17 @@ proctype recv_device()
 	
 	do
 	::recv_unit == TAIKI;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_taiki:
+		assert(Chaku_log < 10);
+/*		assert(Kyohi_1_log < 3); */
+/*		assert(Kyohi_2_log < 2); */
 		if
 		::ch_ope ? a_hatsu -> recv_unit = HATSU;
 		::ch_com ? b_hatsu -> recv_unit = CHAKU;
 			if
 			::CHAKU_ST == SAVE ->
 				if
-				::Chaku_log == 49 -> CHAKU_ST = CLEAR;
+				::Chaku_log == 5 -> CHAKU_ST = CLEAR;
 					if
 					::reset == false -> reset = !(reset);
 					::else->skip;
@@ -55,14 +56,15 @@ proctype recv_device()
 			::else->skip;
 			fi;
 			if
-			::Chaku_log < 100 -> Chaku_log++
+			::Chaku_log < 10 -> Chaku_log++
 			::else->skip;
 			fi;
 		fi;
 	::recv_unit == HATSU;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_hatsu:
+		assert(Chaku_log < 10);
+/*		assert(Kyohi_1_log < 3); */
+/*		assert(Kyohi_2_log < 2); */
 		if
 		::ch_ope ? a_chuushi -> recv_unit = TAIKI;
 		::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
@@ -70,7 +72,7 @@ proctype recv_device()
 			if
 			::KYOHI_2_ST == SAVE ->
 				if
-				::Kyohi_2_log == 8 -> KYOHI_2_ST = CLEAR
+				::Kyohi_2_log == 1 -> KYOHI_2_ST = CLEAR
 					if
 					::reset == false -> reset = !(reset)
 					::else->skip;
@@ -80,14 +82,15 @@ proctype recv_device()
 			::else->skip;
 			fi;
 			if
-			::Kyohi_2_log < 18 -> Kyohi_2_log++
+			::Kyohi_2_log < 2 -> Kyohi_2_log++
 			::else->skip;
 			fi;
 		fi;
 	::recv_unit == CHAKU;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_chaku:
+		assert(Chaku_log < 10);
+/*		assert(Kyohi_1_log < 3); */
+/*		assert(Kyohi_2_log < 2); */
 		if
 		::ch_ope ? a_outou -> TSUUWA;
 			if
@@ -104,7 +107,7 @@ proctype recv_device()
 			if
 			::KYOHI_1_ST == SAVE ->
 				if
-				::Kyohi_1_log == 14 -> KYOHI_1_ST = CLEAR
+				::Kyohi_1_log == 1 -> KYOHI_1_ST = CLEAR
 					if
 					::reset == false -> reset = !(reset);
 					::else->skip;
@@ -114,7 +117,7 @@ proctype recv_device()
 			::else->skip;
 			fi;
 			if
-			::Kyohi_1_log < 30 -> Kyohi_1_log++
+			::Kyohi_1_log < 3 -> Kyohi_1_log++
 			::else->skip;
 			fi;
 		::ch_ope ? a_shuuryou ->
@@ -137,9 +140,10 @@ proctype recv_device()
 			fi;
 		fi;
 	::recv_unit == TSUUWA;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_tsuuwa:
+		assert(Chaku_log < 10);
+/*		assert(Kyohi_1_log < 3); */
+/*		assert(Kyohi_2_log < 2); */
 		if
 		::ch_ope ? a_shuuryou ->
 			if
@@ -161,7 +165,7 @@ proctype recv_device()
 				if
 				::CHAKU_ST == SAVE ->
 					if
-					::Chaku_log == 49 -> CHAKU_ST = CLEAR;
+					::Chaku_log == 5 -> CHAKU_ST = CLEAR;
 						if
 						::reset == false -> reset = !(reset);
 						::else->skip;
@@ -171,7 +175,7 @@ proctype recv_device()
 				::else->skip;
 				fi;
 				if
-				::Chaku_log < 100 -> Chaku_log++
+				::Chaku_log < 10 -> Chaku_log++
 				::else->skip;
 				fi;
 			::else->skip;
@@ -200,6 +204,7 @@ proctype reset_device()
 	do
 	::reset_unit == INIT -> reset_unit = WAIT;
 	::reset_unit == WAIT ->
+progress_wait:
 		if
 		::CHAKU_ST == CLEAR ->
 			CHAKU_ST = SAVE;
