@@ -22,10 +22,66 @@ byte mtx = 0;			/** “¯ŽžÚ‘±” (0, 1, 2) **/
 byte CHAKU_ST = CLEAR;		/** ’…M—š—ð (CLEAR/SAVE) **/
 byte KYOHI_1_ST = CLEAR;	/** Ž©‹‘”Û—š—ð (CLEAR/SAVE) **/
 byte KYOHI_2_ST = CLEAR;	/** ‘¼‹‘”Û—š—ð (CLEAR/SAVE) **/
-int  Chaku_log = 0;		/** ’…M—š—ð 5000Œ/10000Œ -> 50Œ/100Œ‚Ék‘Þ **/
-int  Kyohi_1_log = 0;		/** ‹‘”ÛƒƒO” 1500Œ/3000Œ -> 15Œ/30Œ‚Ék‘Þ **/
-int  Kyohi_2_log = 0;		/** ‹‘”ÛƒƒO” 900Œ/1800Œ -> 9Œ/18Œ‚Ék‘Þ **/
+byte Chaku_log = 0;		/** ’…M—š—ð 5000Œ/10000Œ -> 5Œ/10Œ‚Ék‘Þ **/
+byte Kyohi_1_log = 0;		/** ‹‘”ÛƒƒO” 1500Œ/3000Œ -> 1Œ/3Œ‚Ék‘Þ **/
+byte Kyohi_2_log = 0;		/** ‹‘”ÛƒƒO” 900Œ/1800Œ -> 1Œ/2Œ‚Ék‘Þ **/
 bool reset = false;		/** ƒŠƒZƒbƒgƒtƒ‰ƒO **/
+
+#define CHAKU_MAX		10	/** 10000Œ‚ð10Œ‚Ék‘Þ **/
+#define CHAKU_THREASHOLD	5	/** 5000Œ‚ð5Œ‚Ék‘Þ **/
+#define KYOHI_1_MAX		3	/** 3000Œ‚ð3Œ‚Ék‘Þ **/
+#define KYOHI_1_THREASHOLD	1	/** 1500Œ‚ð1Œ‚Ék‘Þ **/
+#define KYOHI_2_MAX		2	/** 1800Œ‚ð2Œ‚Ék‘Þ **/
+#define KYOHI_2_THREASHOLD	1	/** 900Œ‚ð1Œ‚Ék‘Þ **/
+
+inline mtx_increment() {
+	if
+	::mtx == 0 -> mtx = 1;
+	::mtx == 1 -> mtx = 2;
+	::else->skip;
+	fi;
+}
+
+inline mtx_decrement() {
+	if
+	::mtx == 1 -> mtx = 0;
+	::mtx == 2 -> mtx = 1;
+	::else->skip;
+	fi;
+}
+
+inline reset_flag_set() {
+	if
+	::reset == false -> reset = !(reset);
+	::else->skip;
+	fi;
+}
+
+inline log_check(LOG, LOG_THREASHOLD, LOG_ST) {
+	if
+	::LOG_ST == SAVE ->
+		if
+		::LOG == LOG_THREASHOLD -> LOG_ST = CLEAR;
+			reset_flag_set();
+		::else->skip;
+		fi;
+	::else->skip;
+	fi;
+}
+
+inline log_write(LOG, LOG_MAX) {
+	if
+	::LOG < LOG_MAX -> LOG++
+	::else->skip;
+	fi;
+}
+
+inline assert_log() {
+	assert(Chaku_log < CHAKU_MAX);
+/*	assert(Kyohi_1_log < KYOHI_1_MAX); */
+/*	assert(Kyohi_2_log < KYOHI_2_MAX); */
+}
+
 
 /*********************************************************************
  * ’ÊM’[––
@@ -36,93 +92,40 @@ proctype recv_device()
 	
 	do
 	::recv_unit == TAIKI;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_taiki:
+		assert_log();
 		if
 		::ch_ope ? a_hatsu -> recv_unit = HATSU;
 		::ch_com ? b_hatsu -> recv_unit = CHAKU;
-			if
-			::CHAKU_ST == SAVE ->
-				if
-				::Chaku_log == 49 -> CHAKU_ST = CLEAR;
-					if
-					::reset == false -> reset = !(reset);
-					::else->skip;
-					fi;
-				::else->skip;
-				fi;
-			::else->skip;
-			fi;
-			if
-			::Chaku_log < 100 -> Chaku_log++
-			::else->skip;
-			fi;
+			log_check(Chaku_log, CHAKU_THREASHOLD, CHAKU_ST);
+			log_write(Chaku_log, CHAKU_MAX);
 		fi;
 	::recv_unit == HATSU;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_hatsu:
+		assert_log();
 		if
 		::ch_ope ? a_chuushi -> recv_unit = TAIKI;
 		::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
 		::ch_com ? b_kyohi -> recv_unit = TAIKI;
-			if
-			::KYOHI_2_ST == SAVE ->
-				if
-				::Kyohi_2_log == 8 -> KYOHI_2_ST = CLEAR
-					if
-					::reset == false -> reset = !(reset)
-					::else->skip;
-					fi;
-				::else->skip;
-				fi;
-			::else->skip;
-			fi;
-			if
-			::Kyohi_2_log < 18 -> Kyohi_2_log++
-			::else->skip;
-			fi;
+			log_check(Kyohi_2_log, KYOHI_2_THREASHOLD, KYOHI_2_ST);
+			log_write(Kyohi_2_log, KYOHI_2_MAX);
 		fi;
 	::recv_unit == CHAKU;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_chaku:
+		assert_log();
 		if
 		::ch_ope ? a_outou -> TSUUWA;
-			if
-			::mtx == 0 -> mtx = 1;
-			::mtx == 1 -> mtx = 2;
-			::else->skip;
-			fi;
+			mtx_increment();
 		::ch_ope ? a_kyohi ->
 			if
 			::mtx == 0 -> recv_unit = TAIKI;
 			::mtx == 1 -> recv_unit = TSUUWA;
 			::else->skip;
 			fi;
-			if
-			::KYOHI_1_ST == SAVE ->
-				if
-				::Kyohi_1_log == 14 -> KYOHI_1_ST = CLEAR
-					if
-					::reset == false -> reset = !(reset);
-					::else->skip;
-					fi;
-				::else->skip;
-				fi;
-			::else->skip;
-			fi;
-			if
-			::Kyohi_1_log < 30 -> Kyohi_1_log++
-			::else->skip;
-			fi;
+			log_check(Kyohi_1_log, KYOHI_1_THREASHOLD, KYOHI_1_ST);
+			log_write(Kyohi_1_log, KYOHI_1_MAX);
 		::ch_ope ? a_shuuryou ->
-			if
-			::mtx == 1 -> mtx = 0;
-			::mtx == 2 -> mtx = 1;
-			::else->skip;
-			fi;
+			mtx_decrement();
 		::ch_com ? b_chuushi -> 
 			if
 			::mtx == 0 -> recv_unit = TAIKI;
@@ -130,27 +133,18 @@ proctype recv_device()
 			::else->skip;
 			fi;
 		::ch_com ? b_shuuryou ->
-			if
-			::mtx == 1 -> mtx = 0;
-			::mtx == 2 -> mtx = 1;
-			::else->skip;
-			fi;
+			mtx_decrement();
 		fi;
 	::recv_unit == TSUUWA;
-		assert(Chaku_log < 100);
-/*		assert(Kyohi_1_log < 30); */
-/*		assert(Kyohi_2_log < 18); */
+progress_tsuuwa:
+		assert_log();
 		if
 		::ch_ope ? a_shuuryou ->
 			if
 			::mtx == 1 -> recv_unit = TAIKI;
 			::else->skip;
 			fi;
-			if
-			::mtx == 1 -> mtx = 0;
-			::mtx == 2 -> mtx = 1;
-			::else->skip;
-			fi;
+			mtx_decrement();
 		::ch_com ? b_hatsu ->
 			if
 			::mtx == 1 -> recv_unit = CHAKU;
@@ -158,34 +152,16 @@ proctype recv_device()
 			fi;
 			if
 			::mtx == 1 ->
-				if
-				::CHAKU_ST == SAVE ->
-					if
-					::Chaku_log == 49 -> CHAKU_ST = CLEAR;
-						if
-						::reset == false -> reset = !(reset);
-						::else->skip;
-						fi;
-					::else->skip;
-					fi;
-				::else->skip;
-				fi;
-				if
-				::Chaku_log < 100 -> Chaku_log++
-				::else->skip;
-				fi;
+				log_check(Chaku_log, CHAKU_THREASHOLD, CHAKU_ST);
+				log_write(Chaku_log, CHAKU_MAX);
 			::else->skip;
 			fi;
 		::ch_com ? b_shuuryou ->
-			 if
-			 ::mtx == 1 -> recv_unit = TAIKI;
-			 ::else->skip;
-			 fi;
-			 if
-			 ::mtx == 1 -> mtx = 0;
-			 ::mtx == 2 -> mtx = 1;
-			 ::else->skip;
-			 fi;
+			if
+			::mtx == 1 -> recv_unit = TAIKI;
+			::else->skip;
+			fi;
+			mtx_decrement();
 		fi;
 	od;
 }
@@ -200,6 +176,7 @@ proctype reset_device()
 	do
 	::reset_unit == INIT -> reset_unit = WAIT;
 	::reset_unit == WAIT ->
+progress_wait:
 		if
 		::CHAKU_ST == CLEAR ->
 			CHAKU_ST = SAVE;
