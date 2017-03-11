@@ -18,9 +18,9 @@ chan ch_com = [0] of { mtype };	/* 他通信端末との通信用チャネル */
 mtype recv_unit;     /* 受信装置の状態 */
 mtype reset_unit;    /* リセット装置の状態 */
 
-mtype CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
-mtype KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
-mtype KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
+mtype CHAKU_ST = SAVE;		/** 着信履歴 (CLEAR/SAVE) **/
+mtype KYOHI_1_ST = SAVE;	/** 自拒否履歴 (CLEAR/SAVE) **/
+mtype KYOHI_2_ST = SAVE;	/** 他拒否履歴 (CLEAR/SAVE) **/
 byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
 byte Chaku_log = 0;		/** 着信履歴 5000件/10000件 -> 5件/10件に縮退 **/
 byte Kyohi_1_log = 0;		/** 拒否ログ数 1500件/3000件 -> 1件/3件に縮退 **/
@@ -28,9 +28,9 @@ byte Kyohi_2_log = 0;		/** 拒否ログ数 900件/1800件 -> 1件/2件に縮退 **/
 bool reset = false;		/** リセットフラグ **/
 
 /* 履歴の最大値 （処理都合上4以上の偶数が必要）*/
-#define Chaku_log_max	10	/*仕様値：10000-*/
-#define Kyohi_1_log_max	3	/*仕様値：3000-*/
-#define Kyohi_2_log_max	2	/*仕様値：1800-*/
+#define Chaku_log_max	8	/*仕様値：10000-*/
+#define Kyohi_1_log_max	6	/*仕様値：3000-*/
+#define Kyohi_2_log_max	4	/*仕様値：1800-*/
 
 /* バックアップを取るタイミング (中間-1とする。)*/
 #define Chaku_log_mid		(Chaku_log_max/2 -1 )
@@ -114,6 +114,8 @@ proctype recv_device()
 	recv_unit = TAIKI;		/** 受信装置の初期化 **/
 	
 	do
+	::reset == false ->
+	if
 	::recv_unit == TAIKI;
 progress_taiki:
 		assert_log();
@@ -186,6 +188,7 @@ progress_tsuuwa:
 			fi;
 			mtx_decrement();
 		fi;
+	fi;
 	od;
 }
 
@@ -201,28 +204,31 @@ proctype reset_device()
 	::reset_unit == WAIT ->
 progress_wait:
 		if
-		::CHAKU_ST == CLEAR ->
-			CHAKU_ST = SAVE;
-			/** Backup **/
-			Chaku_log = 0;
-			reset = false;
-		::else->skip;
-		fi;
-		if
-		::KYOHI_1_ST == CLEAR ->
-			KYOHI_1_ST = SAVE;
-			/** Backup **/
-			Kyohi_1_log = 0;
-			reset = false;
-		::else->skip;
-		fi;
-		if
-		::KYOHI_2_ST == CLEAR ->
-			KYOHI_2_ST = SAVE;
-			/** Backup **/
-			Kyohi_2_log = 0;
-			reset = false;
-		::else->skip;
+		::reset==true->
+			if
+			::CHAKU_ST == CLEAR ->
+				CHAKU_ST = SAVE;
+				/** Backup **/
+				Chaku_log = 0;
+				reset = false;
+			::else->skip;
+			fi;
+			if
+			::KYOHI_1_ST == CLEAR ->
+				KYOHI_1_ST = SAVE;
+				/** Backup **/
+				Kyohi_1_log = 0;
+				reset = false;
+			::else->skip;
+			fi;
+			if
+			::KYOHI_2_ST == CLEAR ->
+				KYOHI_2_ST = SAVE;
+				/** Backup **/
+				Kyohi_2_log = 0;
+				reset = false;
+			::else->skip;
+			fi;
 		fi;
 	od;
 }
