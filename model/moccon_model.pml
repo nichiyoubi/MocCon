@@ -18,22 +18,28 @@ chan ch_com = [0] of { mtype };	/* 他通信端末との通信用チャネル */
 mtype recv_unit;     /* 受信装置の状態 */
 mtype reset_unit;    /* リセット装置の状態 */
 
+mtype CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
+mtype KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
+mtype KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
 byte mtx = 0;			/** 同時接続数 (0, 1, 2) **/
-byte CHAKU_ST = CLEAR;		/** 着信履歴 (CLEAR/SAVE) **/
-byte KYOHI_1_ST = CLEAR;	/** 自拒否履歴 (CLEAR/SAVE) **/
-byte KYOHI_2_ST = CLEAR;	/** 他拒否履歴 (CLEAR/SAVE) **/
 byte Chaku_log = 0;		/** 着信履歴 5000件/10000件 -> 5件/10件に縮退 **/
 byte Kyohi_1_log = 0;		/** 拒否ログ数 1500件/3000件 -> 1件/3件に縮退 **/
 byte Kyohi_2_log = 0;		/** 拒否ログ数 900件/1800件 -> 1件/2件に縮退 **/
 bool reset = false;		/** リセットフラグ **/
 
-#define CHAKU_MAX		10	/** 10000件を10件に縮退 **/
-#define CHAKU_THREASHOLD	5	/** 5000件を5件に縮退 **/
-#define KYOHI_1_MAX		3	/** 3000件を3件に縮退 **/
-#define KYOHI_1_THREASHOLD	1	/** 1500件を1件に縮退 **/
-#define KYOHI_2_MAX		2	/** 1800件を2件に縮退 **/
-#define KYOHI_2_THREASHOLD	1	/** 900件を1件に縮退 **/
+/* 履歴の最大値 （処理都合上4以上の偶数が必要）*/
+#define Chaku_log_max	10	/*仕様値：10000-*/
+#define Kyohi_1_log_max	3	/*仕様値：3000-*/
+#define Kyohi_2_log_max	2	/*仕様値：1800-*/
 
+/* バックアップを取るタイミング (中間-1とする。)*/
+#define Chaku_log_mid		(Chaku_log_max/2 -1 )
+#define Kyohi_1_log_mid		(Kyohi_1_log_max/2 -1)
+#define Kyohi_2_log_mid		(Kyohi_2_log_max/2 -1)
+
+/*********************************************************************
+ * mutexのインクリメント
+ *********************************************************************/
 inline mtx_increment() {
 	if
 	::mtx == 0 -> mtx = 1;
@@ -42,6 +48,9 @@ inline mtx_increment() {
 	fi;
 }
 
+/*********************************************************************
+ * mutexのデクリメント
+ *********************************************************************/
 inline mtx_decrement() {
 	if
 	::mtx == 1 -> mtx = 0;
@@ -50,6 +59,10 @@ inline mtx_decrement() {
 	fi;
 }
 
+/*********************************************************************
+ * リセットフラグをセット
+ *   リセットフラグがfalseの時のみ、リセットをtrueにセットする
+ *********************************************************************/
 inline reset_flag_set() {
 	if
 	::reset == false -> reset = !(reset);
@@ -57,6 +70,10 @@ inline reset_flag_set() {
 	fi;
 }
 
+/*********************************************************************
+ * ログファイルの状態がSAVE済みの場合で、閾値を超えていた場合、
+ * 状態をCLEARにして、リセットフラグをセットしてログファイルの保存を促す
+ *********************************************************************/
 inline log_check(LOG, LOG_THREASHOLD, LOG_ST) {
 	if
 	::LOG_ST == SAVE ->
@@ -69,6 +86,9 @@ inline log_check(LOG, LOG_THREASHOLD, LOG_ST) {
 	fi;
 }
 
+/*********************************************************************
+ * ログファイルに履歴を追加する
+ *********************************************************************/
 inline log_write(LOG, LOG_MAX) {
 	if
 	::LOG < LOG_MAX -> LOG++
@@ -76,10 +96,13 @@ inline log_write(LOG, LOG_MAX) {
 	fi;
 }
 
+/*********************************************************************
+ * assertion　ログファイルが最大値に到達していないことをチェックする
+ *********************************************************************/
 inline assert_log() {
-	assert(Chaku_log < CHAKU_MAX);
-/*	assert(Kyohi_1_log < KYOHI_1_MAX); */
-/*	assert(Kyohi_2_log < KYOHI_2_MAX); */
+	assert(Chaku_log < Chaku_log_max);
+/*	assert(Kyohi_1_log < Kyohi_1_log_max); */
+/*	assert(Kyohi_2_log < Kyohi_2_log_max); */
 }
 
 
@@ -97,8 +120,8 @@ progress_taiki:
 		if
 		::ch_ope ? a_hatsu -> recv_unit = HATSU;
 		::ch_com ? b_hatsu -> recv_unit = CHAKU;
-			log_check(Chaku_log, CHAKU_THREASHOLD, CHAKU_ST);
-			log_write(Chaku_log, CHAKU_MAX);
+			log_check(Chaku_log, Chaku_log_mid, CHAKU_ST);
+			log_write(Chaku_log, Chaku_log_max);
 		fi;
 	::recv_unit == HATSU;
 progress_hatsu:
@@ -107,8 +130,8 @@ progress_hatsu:
 		::ch_ope ? a_chuushi -> recv_unit = TAIKI;
 		::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
 		::ch_com ? b_kyohi -> recv_unit = TAIKI;
-			log_check(Kyohi_2_log, KYOHI_2_THREASHOLD, KYOHI_2_ST);
-			log_write(Kyohi_2_log, KYOHI_2_MAX);
+			log_check(Kyohi_2_log, Kyohi_2_log_mid, KYOHI_2_ST);
+			log_write(Kyohi_2_log, Kyohi_2_log_max);
 		fi;
 	::recv_unit == CHAKU;
 progress_chaku:
@@ -122,8 +145,8 @@ progress_chaku:
 			::mtx == 1 -> recv_unit = TSUUWA;
 			::else->skip;
 			fi;
-			log_check(Kyohi_1_log, KYOHI_1_THREASHOLD, KYOHI_1_ST);
-			log_write(Kyohi_1_log, KYOHI_1_MAX);
+			log_check(Kyohi_1_log, Kyohi_1_log_mid, KYOHI_1_ST);
+			log_write(Kyohi_1_log, Kyohi_1_log_max);
 		::ch_ope ? a_shuuryou ->
 			mtx_decrement();
 		::ch_com ? b_chuushi -> 
@@ -152,8 +175,8 @@ progress_tsuuwa:
 			fi;
 			if
 			::mtx == 1 ->
-				log_check(Chaku_log, CHAKU_THREASHOLD, CHAKU_ST);
-				log_write(Chaku_log, CHAKU_MAX);
+				log_check(Chaku_log, Chaku_log_mid, CHAKU_ST);
+				log_write(Chaku_log, Chaku_log_max);
 			::else->skip;
 			fi;
 		::ch_com ? b_shuuryou ->
