@@ -116,16 +116,17 @@ proctype recv_device()
 	do
 	::recv_unit == TAIKI;
 progress_taiki:
-		assert_log();
+/*		assert_log(); */
 		if
 		::ch_ope ? a_hatsu -> recv_unit = HATSU;
 		::ch_com ? b_hatsu -> recv_unit = CHAKU;
+assert(!((reset == false) && (CHAKU_ST == CLEAR)));
 			log_check(Chaku_log, Chaku_log_mid, CHAKU_ST);
 			log_write(Chaku_log, Chaku_log_max);
 		fi;
 	::recv_unit == HATSU;
 progress_hatsu:
-		assert_log();
+/*		assert_log(); */
 		if
 		::ch_ope ? a_chuushi -> recv_unit = TAIKI;
 		::ch_com ? b_outou -> recv_unit = TSUUWA; mtx = 1;
@@ -135,7 +136,7 @@ progress_hatsu:
 		fi;
 	::recv_unit == CHAKU;
 progress_chaku:
-		assert_log();
+/*		assert_log(); */
 		if
 		::ch_ope ? a_outou -> TSUUWA;
 			mtx_increment();
@@ -160,7 +161,7 @@ progress_chaku:
 		fi;
 	::recv_unit == TSUUWA;
 progress_tsuuwa:
-		assert_log();
+/*		assert_log(); */
 		if
 		::ch_ope ? a_shuuryou ->
 			if
@@ -175,6 +176,7 @@ progress_tsuuwa:
 			fi;
 			if
 			::mtx == 1 ->
+assert(!((reset == false) && (CHAKU_ST == CLEAR)));
 				log_check(Chaku_log, Chaku_log_mid, CHAKU_ST);
 				log_write(Chaku_log, Chaku_log_max);
 			::else->skip;
